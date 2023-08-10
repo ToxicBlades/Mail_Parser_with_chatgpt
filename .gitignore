@@ -1,0 +1,9 @@
+__pycache__
+.vscode
+build
+dist
+config.py
+parser.spec
+smart-api-key-gpt.txt
+email_processing.log
+xd.py
