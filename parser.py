@@ -326,7 +326,7 @@ def process_ai(email_data):
                 # gpt-4-0613
                 # gpt-3.5-turbo
                 model="gpt-3.5-turbo",
-                messages = [{"role": "user", "content": f" Could you please analyze the provided text and extract specific details related to different products? The details that need to be extracted include the Product Name, Weight/Volume, Type of Packaging, Price, Type of Price (such as Per Case, Box, or Pcs), and Incoterms. Please ensure that the extracted information is formatted as a CSV file, with the following columns:'Product Name','Weight/Volume','Type of Packaging','Price','Type of Price','Incoterms'. The extracted details should be comprehensive for each product mentioned  in the text if there is no inforamtion about some columns put none instead, which is provided in this text: {combined_text}."}],
+                messages = [{"role": "user", "content": f" As an expert text analyst, analyze the provided text and extract specific details related to different products. The details that need to be extracted include: the Product Name, Weight/Volume, Type of Packaging, Price, Type of Price (such as Per Case, Box, or Pcs), and Incoterms. Please ensure that the extracted information is formatted as a CSV file, with the following columns:'Product Name','Weight/Volume','Type of Packaging','Price','Type of Price','Incoterms'. The extracted details should be comprehensive for each product mentioned  in the text and if any of the columns are missing information, it will be marked as 'none'. The provided text is: {combined_text}."}],
                 max_tokens = 1000,
                 temperature = 0.8)
                 # Extract the required information from the completion
@@ -416,6 +416,9 @@ def extract_info_from_ai_completion(completion):
 
     for row in csv_reader:
         try:
+            # Make sure the row has 6 elements, filling in "none" for any missing values
+            row += ["none"] * (6 - len(row))
+
             product_name = row[0].strip()
             product_name = clear_string_for_db(product_name)
 
@@ -429,7 +432,7 @@ def extract_info_from_ai_completion(completion):
             price = clear_string_for_db(price)
             if price != 'Not mentioned':
                 price = remove_last_comma(price)
-                price = price.replace(".",",")
+                price = price.replace(".", ",")
 
             price_type = row[4].strip()
             price_type = clear_string_for_db(price_type)
@@ -439,8 +442,8 @@ def extract_info_from_ai_completion(completion):
 
             extracted_info.append([product_name, weight, pack_type, price, price_type, incoterm])
 
-        except IndexError:
-            logging.error("Error while extracting information from product. Skipping this product.")
+        except Exception as e:
+            logging.error(f"Error while extracting information from product: {e}. Skipping this product.")
             continue
     return extracted_info
 
