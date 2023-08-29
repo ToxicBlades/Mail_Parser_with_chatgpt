@@ -326,7 +326,7 @@ def process_ai(email_data):
                 # gpt-4-0613
                 # gpt-3.5-turbo
                 model="gpt-3.5-turbo",
-                messages = [{"role": "user", "content": f" As an expert text analyst, analyze the provided text and extract specific details related to different products. The details that need to be extracted include: the Product Name, Weight/Volume, Type of Packaging, Price, Type of Price (such as Per Case, Box, or Pcs), and Incoterms. Please ensure that the extracted information is formatted as a CSV file, with the following columns:'Product Name','Weight/Volume','Type of Packaging','Price','Type of Price','Incoterms'. The extracted details should be comprehensive for each product mentioned  in the text and if any of the columns are missing information, it will be marked as 'none'. The provided text is: {combined_text}."}],
+                messages = [{"role": "user", "content": f" As an expert text analyst, analyze the provided text and extract specific details related to different products. The details that need to be extracted include (if any of detail has comma in it switch it to dot): the Product Name, Weight/Volume, Type of Packaging, Price , Type of Price (such as Per Case, Box, or Pcs), and Incoterms. Please ensure that the extracted information is formatted as a CSV file, with the following columns:'Product Name','Weight/Volume','Type of Packaging','Price','Type of Price','Incoterms'. The extracted details should be comprehensive for each product mentioned  in the text and if any of the columns are missing information, it will be marked as 'none'. The provided text is: {combined_text}."}],
                 max_tokens = 1000,
                 temperature = 0.8)
                 # Extract the required information from the completion
@@ -408,6 +408,8 @@ def extract_info_from_ai_completion(completion):
     response = completion.choices[0].message['content']
     logging.debug('Chat answer is %s', response)
 
+    last_price = 'none'
+    last_incoterm = 'none'
     extracted_info = []
     response_io = io.StringIO(response)  # Converts string to a file-like object for csv.reader
     csv_reader = csv.reader(response_io, delimiter=',')
@@ -430,15 +432,24 @@ def extract_info_from_ai_completion(completion):
 
             price = row[3].strip()
             price = clear_string_for_db(price)
-            if price != 'Not mentioned':
-                price = remove_last_comma(price)
-                price = price.replace(".", ",")
+            if price.lower() == 'none':
+                price = last_price  # Use last_price if current price is 'none' or 'None'
+            else:
+                last_price = price  # Update last_price with the current valid price
+            price = remove_last_comma(price)
+            price = price.replace(".", ",")
+
 
             price_type = row[4].strip()
             price_type = clear_string_for_db(price_type)
 
             incoterm = row[5].strip()
+            if incoterm.lower() == 'none':
+                incoterm = last_incoterm  # Use last_price if current price is 'none' or 'None'
+            else:
+                last_incoterm = incoterm  # Update last_price with the current valid price
             incoterm = clear_string_for_db(incoterm)
+
 
             extracted_info.append([product_name, weight, pack_type, price, price_type, incoterm])
 
