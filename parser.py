@@ -25,13 +25,13 @@ import pymysql
 import io
 
 #Secure this data :)
-from config import EMAIL, PASSWORD, DIR , APIKEY ,SSH_PASSWORD, SSH_USERNAME, DATABASE_PASSWORD, DARABASE_USERNAME, SSH_HOST, DBNAME
+from config import EMAIL, PASSWORD, DIR , APIKEY ,SSH_PASSWORD, SSH_USERNAME, DATABASE_PASSWORD, DATABASE_USERNAME, SSH_HOST, DBNAME
 
 
 ssh_host = SSH_HOST
 ssh_username = SSH_USERNAME
 ssh_password = SSH_PASSWORD
-database_username = DARABASE_USERNAME
+database_username = DATABASE_USERNAME
 database_password = DATABASE_PASSWORD
 database_name = DBNAME
 localhost = '127.0.0.1'
@@ -462,15 +462,30 @@ def extract_info_from_ai_completion(completion):
 
 def save_ai_responses():
     """Saves AI responses to the database"""
-    sql = "INSERT INTO offers (product, weight, pack_type, price,price_type, incoterm, sender, subject, date) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)"
+
+    insert_sql = """INSERT INTO offers (product, weight, pack_type, price, price_type,
+                    incoterm, sender, subject, date) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)"""
+
+    # Query to check if an item with the same subject already exists
+    check_sql = """SELECT 1 FROM offers WHERE subject = %s LIMIT 1"""
+
     for data in ai_responses:
-        product, weight, pack_type, price, price_type, incoterm,sender,subject,date = data
-        values = (product,weight, pack_type, price, price_type, incoterm,sender,subject,date)
-        cursor.execute(sql, values)
+        product, weight, pack_type, price, price_type, incoterm, sender, subject, date = data
+
+        # Check if item with same subject already exists
+        cursor.execute(check_sql, (subject,))
+        if cursor.fetchone():
+            # If item with the same subject is found, skip this iteration
+            continue
+
+        # If not, insert the new data
+        values = (product, weight, pack_type, price, price_type, incoterm, sender, subject, date)
+        cursor.execute(insert_sql, values)
 
     connection.commit()
 
     print("AI responses saved to the database")
+
 
 
 # Run the program
