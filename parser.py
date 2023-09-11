@@ -466,17 +466,9 @@ def save_ai_responses():
     insert_sql = """INSERT INTO offers (product, weight, pack_type, price, price_type,
                     incoterm, sender, subject, date) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)"""
 
-    # Query to check if an item with the same subject already exists
-    check_sql = """SELECT 1 FROM offers WHERE subject = %s LIMIT 1"""
 
     for data in ai_responses:
         product, weight, pack_type, price, price_type, incoterm, sender, subject, date = data
-
-        # Check if item with same subject already exists
-        cursor.execute(check_sql, (subject,))
-        if cursor.fetchone():
-            # If item with the same subject is found, skip this iteration
-            continue
 
         # If not, insert the new data
         values = (product, weight, pack_type, price, price_type, incoterm, sender, subject, date)

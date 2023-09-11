@@ -44,7 +44,7 @@ cursor = connection.cursor()
 openai.api_key = APIKEY
 
 #Where are we gonna save our file after work
-OUTPUT_DIR = DIR
+OUTPUT_DIR = os.getcwd()
 
 def remove_text_and_words(input_string):
     words_to_remove = ["Forwarded", "message","messages", "Date", "Subject", "To", "Cc", "www","Adress","Mail","email","e-mail","Cell","Skype","Whatsapp","Warehouse","Manager","https","Copyright","Director","Web","Mobile","Phone","Mob","Ustr","Address","Tel","web-chat","T:","F:","regards","http","Trade"]
