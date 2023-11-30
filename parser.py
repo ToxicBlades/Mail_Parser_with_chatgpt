@@ -9,7 +9,7 @@ import openpyxl
 import xlrd
 import mailparser
 from bs4 import BeautifulSoup
-import openai
+from openai import OpenAI
 import logging
 import time
 import re
@@ -64,7 +64,10 @@ pattern = r"\s-\s(?![\w\d]+-[а-яА-ЯёЁ]+)"
 
 
 #Set your apikey for chat gpt
-openai.api_key = APIKEY
+client = OpenAI(
+    # defaults to os.environ.get("OPENAI_API_KEY")
+    api_key=APIKEY,
+)
 
 #Where are we gonna save our file after work
 OUTPUT_DIR = DIR
@@ -320,19 +323,18 @@ def process_ai(email_data):
                 combined_text = remove_text_and_words(text)
 
         retries = 0
-        while retries < 3:
+        while retries < 2:
             try:
-                completion = openai.ChatCompletion.create(
+                completion = client.chat.completions.create(
                 # gpt-4-0613
                 # gpt-3.5-turbo
-                model="gpt-3.5-turbo",
-                messages = [{"role": "user", "content": f" As an expert text analyst, analyze the provided text and extract specific details related to different products. The details that need to be extracted include (if any of detail has comma in it switch it to dot): the Product Name, Weight/Volume, Type of Packaging, Price , Type of Price (such as Per Case, Box, or Pcs), and Incoterms. Please ensure that the extracted information is formatted as a CSV file, with the following columns:'Product Name','Weight/Volume','Type of Packaging','Price','Type of Price','Incoterms'. The extracted details should be comprehensive for each product mentioned  in the text and if any of the columns are missing information, it will be marked as 'none'. The provided text is: {combined_text}."}],
-                max_tokens = 1000,
-                temperature = 0.8)
+                messages = [{"role": "user", "content": f" As an expert text analyst, analyze the provided text and extract specific details related to different products. The details that need to be extracted include (if any of detail has comma in it switch it to dot): the Product Name, Weight/Volume, Type of Packaging, Price , Type of Price (such as Per Case, Box, or Pcs), and Incoterms. Please ensure that the extracted information is formatted as a CSV file, with the following columns:'Product Name','Weight/Volume','Type of Packaging','Price','Type of Price','Incoterms'. The extracted details should be comprehensive for each product mentioned  in the text and if any of the columns are missing information, it will be marked as 'none'. The provided text is: {combined_text}.",}],
+                model="gpt-3.5-turbo")
                 # Extract the required information from the completion
                 response_data = extract_info_from_ai_completion(completion)
-                time.sleep(20)
+                #time.sleep(20)
                 if response_data:
+                    print(response_data)
                     #leave while because we got data
                     break
 
@@ -341,7 +343,7 @@ def process_ai(email_data):
                 # Pause for 20 seconds (Api has limit for requsts in a minute,if we procces more then 3 mail it give us api error)
             except Exception:
                 retries += 1
-                time.sleep(20)
+                #time.sleep(20)
 
         if response_data:
             # Add the response to the list
@@ -405,7 +407,7 @@ def remove_last_comma(string):
 
 def extract_info_from_ai_completion(completion):
     """Function to extract the required information from the AI completion"""
-    response = completion.choices[0].message['content']
+    response = completion.choices[0].message.content
     logging.debug('Chat answer is %s', response)
 
     last_price = 'none'
@@ -487,3 +489,4 @@ logging.basicConfig(filename='email_processing.log', level=logging.DEBUG)
 username = EMAIL  #your mail here
 password = PASSWORD  #your password for apps here
 parse_emails(username, password)
+
