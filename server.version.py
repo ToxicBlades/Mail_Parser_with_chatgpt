@@ -6,7 +6,7 @@ import openpyxl
 import xlrd
 import mailparser
 from bs4 import BeautifulSoup
-import openai
+from openai import OpenAI
 import logging
 import time
 import re
@@ -41,14 +41,16 @@ cursor = connection.cursor()
 
 
 #Set your apikey for chat gpt
-openai.api_key = APIKEY
+client = OpenAI(
+    api_key=APIKEY,
+)
 
 #Where are we gonna save our file after work
 OUTPUT_DIR = os.getcwd()
 
 def remove_text_and_words(input_string):
     words_to_remove = ["Forwarded", "message","messages", "Date", "Subject", "To", "Cc", "www","Adress","Mail","email","e-mail","Cell","Skype","Whatsapp","Warehouse","Manager","https","Copyright","Director","Web","Mobile","Phone","Mob","Ustr","Address","Tel","web-chat","T:","F:","regards","http","Trade"]
-    russian_pattern = re.compile("[Р°-СЏРђ-РЇС‘РЃ]+")  # find Russian words
+    russian_pattern = re.compile("[а-яА-ЯёЁ]+")  # find Russian words
 
     output_string = input_string
     for word in words_to_remove:
@@ -214,9 +216,9 @@ def parse_emails(username, password):
             try:
                 email_data.append(process_email(M, email_id))
             except Exception as e:
-                logging.error(f"Failed to process email {email_id}: {str(e)}")
+                logging.error(f"Failed to process email {email_id}")
     except Exception as e:
-        logging.error(f"Failed to connect or fetch emails: {str(e)}")
+        logging.error(f"Failed to connect or fetch emails: ")
         return
 
     process_ai(email_data)
@@ -256,8 +258,8 @@ def process_ai(email_data):
             lines = text.split("\n")  # Split the email text into lines
 
             for line in lines:
-                if line.startswith("From:") or line.startswith("РћС‚:"):
-                    sender = line.replace("From:", "").replace("РћС‚:", "").strip()
+                if line.startswith("From:") or line.startswith("От:"):
+                    sender = line.replace("From:", "").replace("От:", "").strip()
                     sender = sender.replace("<","").replace(">","")
                 elif line.startswith("Date:"):
                     date = line.replace("Date:", "").strip()
@@ -265,6 +267,7 @@ def process_ai(email_data):
             sender = data[1]
             sender = sender.replace("<","").replace(">","")
             date = data[2]
+
         text_html = data[4]
         attached_data = data[5]
         response_data = ''
@@ -298,13 +301,11 @@ def process_ai(email_data):
         retries = 0
         while retries < 3:
             try:
-                completion = openai.ChatCompletion.create(
+                completion = client.chat.completions.create(
                 # gpt-4-0613
                 # gpt-3.5-turbo
-                model="gpt-3.5-turbo",
-                messages = [{"role": "user", "content": f" As an expert text analyst, analyze the provided text and extract specific details related to different products. The details that need to be extracted include (if any of detail has comma in it switch it to dot): the Product Name, Weight/Volume, Type of Packaging, Price , Type of Price (such as Per Case, Box, or Pcs), and Incoterms. Please ensure that the extracted information is formatted as a CSV file, with the following columns:'Product Name','Weight/Volume','Type of Packaging','Price','Type of Price','Incoterms'. The extracted details should be comprehensive for each product mentioned  in the text and if any of the columns are missing information, it will be marked as 'none'. The provided text is: {combined_text}."}],
-                max_tokens = 1000,
-                temperature = 0.8)
+                messages = [{"role": "user", "content": f" As an expert text analyst, analyze the provided text and extract specific details related to different products. The details that need to be extracted include (if any of detail has comma in it switch it to dot): the Product Name, Weight/Volume, Type of Packaging, Price , Type of Price (such as Per Case, Box, or Pcs), and Incoterms. Please ensure that the extracted information is formatted as a CSV file, with the following columns:'Product Name','Weight/Volume','Type of Packaging','Price','Type of Price','Incoterms'. The extracted details should be comprehensive for each product mentioned  in the text and if any of the columns are missing information, it will be marked as 'none'. The provided text is: {combined_text}.",}],
+                model="gpt-3.5-turbo")
                 # Extract the required information from the completion
                 response_data = extract_info_from_ai_completion(completion)
                 time.sleep(20)
@@ -381,7 +382,7 @@ def remove_last_comma(string):
 
 def extract_info_from_ai_completion(completion):
     """Function to extract the required information from the AI completion"""
-    response = completion.choices[0].message['content']
+    response = completion.choices[0].message.content
     logging.debug('Chat answer is %s', response)
 
     last_price = 'none'
@@ -430,7 +431,7 @@ def extract_info_from_ai_completion(completion):
             extracted_info.append([product_name, weight, pack_type, price, price_type, incoterm])
 
         except Exception as e:
-            logging.error(f"Error while extracting information from product: {e}. Skipping this product.")
+            logging.error(f"Error while extracting information from product:. Skipping this product.")
             continue
     return extracted_info
 
